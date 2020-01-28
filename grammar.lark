@@ -12,7 +12,7 @@ top_precedence_expression: "(" exp ")"
                          | identifier
                          | call
                          | integer
-variable_declaration: ">V " identifier ": " size
+variable_declaration: ">V " identifier ": " size (" = " exp)?
 array_declaration: ">A " identifier ": " size " * " indices
 call: identifier "(" exp ("," exp)*  ")"
 label_name: WORD
