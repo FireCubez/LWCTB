@@ -1,22 +1,21 @@
 program: declaration* statement+
 declaration: variable_declaration
 statement: goto | assignment | label | call // | if_statement | loop
-assignment: (identifier | array_access) "=" exp
+assignment: identifier_or_array_access "=" exp
 goto: "goto" label_name
-label: label_name ":"
+label: WORD ":"
 exp: precedence_1_expression
 !precedence_1_expression: precedence_2_expression | precedence_2_expression ("+"|"-") precedence_2_expression
 !precedence_2_expression: precedence_3_expression | precedence_3_expression ("*"|"/") precedence_3_expression
 !precedence_3_expression: top_precedence_expression
 top_precedence_expression: "(" exp ")"
-                         | identifier
-                         | array_access
+                         | identifier_or_array_access
                          | call
                          | integer
 variable_declaration: ("let" ("[" indices "]")?)? identifier ":" size ("=" compile_time_exp)?
 call: identifier "(" exp ("," exp)*  ")"
-array_access: identifier "[" exp "]"
-label_name: identifier
+identifier_or_array_access: identifier ("[" exp "]")*
+label_name: WORD
 identifier: WORD
 compile_time_exp: integer
 size: positive_integer
