@@ -12,7 +12,7 @@ top_precedence_expression: "(" exp ")"
                          | identifier_or_array_access
                          | call
                          | integer
-variable_declaration: ("let" ("[" indices "]")?)? identifier ":" size ("=" compile_time_exp)?
+variable_declaration: "let" ("[" indices "]")? identifier ":" size ("=" compile_time_exp)?
 if_statement: "if" exp code_block ("else" code_block)?
 loop: "while" exp code_block
 code_block: "{" statement+ "}"
