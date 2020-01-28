@@ -1,22 +1,24 @@
 program: declaration* statement+
-declaration: variable_declaration | array_declaration
-statement: goto | assignment | label | call
-assignment: identifier " = " exp
-goto: ">G " label_name
-label: ">L " label_name ": "
+declaration: variable_declaration
+statement: goto | assignment | label | call // | if_statement | loop
+assignment: (identifier | array_access) "=" exp
+goto: "goto" label_name
+label: label_name ":"
 exp: precedence_1_expression
-precedence_1_expression: precedence_2_expression | precedence_2_expression ("+"|"-") precedence_2_expression
-precedence_2_expression: precedence_3_expression | precedence_3_expression ("*"|"/") precedence_3_expression
-precedence_3_expression: top_precedence_expression
+!precedence_1_expression: precedence_2_expression | precedence_2_expression ("+"|"-") precedence_2_expression
+!precedence_2_expression: precedence_3_expression | precedence_3_expression ("*"|"/") precedence_3_expression
+!precedence_3_expression: top_precedence_expression
 top_precedence_expression: "(" exp ")"
                          | identifier
+                         | array_access
                          | call
                          | integer
-variable_declaration: ">V " identifier ": " size (" = " exp)?
-array_declaration: ">A " identifier ": " size " * " indices
+variable_declaration: ("let" ("[" indices "]")?)? identifier ":" size ("=" compile_time_exp)?
 call: identifier "(" exp ("," exp)*  ")"
-label_name: WORD
+array_access: identifier "[" exp "]"
+label_name: identifier
 identifier: WORD
+compile_time_exp: integer
 size: positive_integer
 indices: positive_integer
 WORD: ("a".."z"|"A".."Z") ("a".."z"|"A".."Z"|"0".."9"|"$")*
