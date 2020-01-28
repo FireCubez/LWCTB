@@ -19,13 +19,13 @@ label_name: WORD
 identifier: WORD
 size: positive_integer
 indices: positive_integer
-WORD: ("a".."z"|"A".."Z")+
+WORD: ("a".."z"|"A".."Z") ("a".."z"|"A".."Z"|"0".."9"|"$")*
 integer: positive_integer | negative_integer
 negative_integer: "-" positive_integer
 positive_integer: (DENARY | HEX | BINARY)
 DENARY: ("1".."9") ("0".."9")*
-HEX: "0x" (("0".."9"|"A".."F")~2)+
-BINARY: "0b" (("0"|"1")~8)+
+HEX: "0x" ("0".."9"|"A".."F")+
+BINARY: "0b" ("0"|"1")+
 
-WHITESPACE: (" "|"\n")+
+WHITESPACE: (" "|"\n"|"\t"|"\r")+
 %ignore WHITESPACE
