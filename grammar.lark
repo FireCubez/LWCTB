@@ -1,6 +1,6 @@
 program: declaration* statement+
 declaration: variable_declaration
-statement: goto | assignment | label | call // | if_statement | loop
+statement: goto | assignment | label | call | if_statement | loop
 assignment: identifier_or_array_access "=" exp
 goto: "goto" label_name
 label: WORD ":"
@@ -13,6 +13,9 @@ top_precedence_expression: "(" exp ")"
                          | call
                          | integer
 variable_declaration: ("let" ("[" indices "]")?)? identifier ":" size ("=" compile_time_exp)?
+if_statement: "if" exp code_block ("else" code_block)?
+loop: "while" exp code_block
+code_block: "{" statement+ "}"
 call: identifier "(" exp ("," exp)*  ")"
 identifier_or_array_access: identifier ("[" exp "]")*
 label_name: WORD
