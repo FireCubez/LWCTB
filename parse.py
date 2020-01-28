@@ -7,7 +7,7 @@ else:
     log = []
     logger = log.append
 
-grammar = Path("BBJ.lark").read_text()
+grammar = Path("grammar.lark").read_text()
 logger("grammar found ")
 
 grammar_parser = Lark(grammar, start="program", parser='lalr')
