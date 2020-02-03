@@ -1,1 +1,1 @@
-require("./parser/parser.js");
+require("./parser/index.js");
