@@ -1,1 +1,1 @@
-Import `parse.py` and call `grammar_parser.parse(...)` on whatever you want. There'll be a bit of a log in the `log` variable.
+Import `build/parser.js` and call the `parse` method  to get an AST. Use `npm test` to test.
