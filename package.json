@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/FireCubez/LWCTB/issues"
   },
-  "homepage": "https://github.com/FireCubez/LWCTB#readme"
+  "homepage": "https://github.com/FireCubez/LWCTB#readme",
+  "devDependencies": {
+    "pegjs": "^0.10.0"
+  }
 }

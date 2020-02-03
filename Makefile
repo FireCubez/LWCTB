@@ -12,4 +12,4 @@ clean:
 .PHONY: clean test
 
 build/%.js: src/%.pegjs
-	pegjs -o $@ $<
+	npx pegjs -o $@ $<
