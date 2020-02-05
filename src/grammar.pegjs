@@ -89,12 +89,12 @@ Assignable "assignable value" = e:Expr & {
 
 Expr "expression" = Prec1Expr
 
-Prec1Expr = a:Prec2Expr _ op:[+-] _ b:Prec2Expr {return meta({
+Prec1Expr = a:Prec2Expr _ op:[+-] _ b:Prec1Expr {return meta({
 	type: "op" + op,
 	a, b
 })} / Prec2Expr
 
-Prec2Expr = a:Prec3Expr _ op:[*/%] _ b:Prec3Expr {return meta({
+Prec2Expr = a:Prec3Expr _ op:[*/%] _ b:Prec2Expr {return meta({
 	type: "op" + op,
 	a, b
 })} / Prec3Expr
