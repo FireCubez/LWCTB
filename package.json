@@ -5,8 +5,8 @@
   "main": "build/parser.js",
   "scripts": {
     "test": "make test",
-    "build": "mkdir -p build && make all",
-    "setup": "node build/lwctb-setup.js"
+    "build": "mkdir -p build && node build.js",
+		"clean": "rm -rf build"
   },
   "repository": {
     "type": "git",
