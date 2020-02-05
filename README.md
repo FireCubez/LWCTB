@@ -10,7 +10,7 @@ Import the package, and call the `parse` method  to get an AST. Use `npm test` t
 `lwctbc` is a command-line interface for the LWCTB compiler. There is currently no automatic setup; you must set up the compiler on your own. Here are instructions for that:
 
 1. Clone this repo.
-2. Run `npm install -O`\* to install optional dependencies. Build with `make cli`.
+2. Run `npm install -O`\* to install optional dependencies. Build with `npm run build`.
 3. Create a script `lwctbc`:
   - Windows: `node build/cli.js -- %*`
   - Linux: `node build/cli.js -- $*`
