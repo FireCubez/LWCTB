@@ -1,16 +1,16 @@
 // Wrapper around grammar.js
 const grammar = require("./grammar.js");
 
-const linemarker = /^#\s*(\d+)\s+"(.*?)"((?:\s+[1-4])*)/;
-exports.processLines = function(s) {
+const linemarker = /^#(?:line)?\s*(\d+)\s+"(.*?)"((?:\s+[1-4])*)/;
+exports.processLines = function(s, infile) {
 	let linemap = new Map();
 	linemap.set(1, {
 		line: 1,
-		file: "<input>",
+		file: infile,
 		flags: []
 	});
 	let result = "";
-	let lines = s.split("\n");
+	let lines = s.split(/\r?\n/g);
 	let j = 1;
 	for(let i = 0; i < lines.length; i++) {
 		let line = lines[i];
@@ -31,19 +31,22 @@ exports.processLines = function(s) {
 	return {linemap, result};
 }
 
-exports.parse = function(s) {
-	let x = exports.processLines(s);
+exports.parse = function(s, f) {
+	let x = exports.processLines(s, f);
 	global.$$LWCTB = {
 		getLineInfo(l) {
 			return exports.getLineInfo(x.linemap, l);
 		}
 	};
 	try {
-		return grammar.parse(x.result);
+		return {
+			result: grammar.parse(x.result),
+			processedLines: x
+		};
 	} catch(ex) {
 		if(ex.name === "SyntaxError") {
-			let s = $$LWCTB.getLineInfo(e.location.start.line);
-			let e = $$LWCTB.getLineInfo(e.location.end.line);
+			let s = $$LWCTB.getLineInfo(ex.location.start.line);
+			let e = $$LWCTB.getLineInfo(ex.location.end.line);
 			ex.location.start.line = s.line;
 			ex.location.start.file = s.file;
 			ex.location.start.flags = s.flags;
