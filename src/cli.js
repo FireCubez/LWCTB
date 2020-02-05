@@ -179,41 +179,19 @@ let fileMap = new Map();
 		console.debug("lwctbc: debug: input file", config.inputFile, "contents", input);
 	}
 	fileMap.set(config.inputFile, input);
-	let proc = child_process.spawn(opts.use_preprocessor, [...opts.pre_opts, config.inputFile], {
-		shell: true
-	});
-	proc.on("error", err => {
-		throw err;
-	});
-	let stderr = "", stdout = "";
-	proc.stderr.on("data", x => {
-		stderr += x;
-	});
-	let preprocessEmit = config.emits.shift();
-	proc.stdout.on("data", x => {
-		stdout += x;
-	});
-	if(preprocessEmit.val != null) {
-		proc.stdout.pipe(fs.createWriteStream(preprocessEmit.val));
+	let preprocessEmit = config.emits[currentStage];
+	let stdout = await preprocessEmit.action();
+
+	if(currentStage++ > config.maxStage) process.exit(0);
+	let res = parser.parse(stdout, config.inputFile);
+	let parseEmit = config.emits.shift();
+	if(parseEmit.val != null) fs.writeFileSync(parseEmit.val, JSON.stringify(res.result));
+	for(let val of res.processedLines.linemap.values()) {
+		if(!fileMap.has(val.file)) {
+			let v = val.file === "-" ? await getStdin() : fs.readFileSync(val.file, "utf-8");
+			fileMap.set(val.file, v);
+		}
 	}
-	proc.on("exit", async code => {
-		if(config.verbosity > 0) console.info("lwctbc: info: preprocessor exited with status", code);
-		if(code !== 0) {
-			console.error("lwctbc: error: preprocessor exited with non-zero status", code, "--- stderr dump:");
-			console.error(stderr);
-			process.exit(1);
-		}
-		if(currentStage++ > config.maxStage) process.exit(0);
-		let res = parser.parse(stdout, config.inputFile);
-		let parseEmit = config.emits.shift();
-		if(parseEmit.val != null) fs.writeFileSync(parseEmit.val, JSON.stringify(res.result));
-		for(let val of res.processedLines.linemap.values()) {
-			if(!fileMap.has(val.file)) {
-				let v = val.file === "-" ? await getStdin() : fs.readFileSync(val.file, "utf-8");
-				fileMap.set(val.file, v);
-			}
-		}
-	});
 })().catch(e => {
 	console.error(e.stack);
 });
