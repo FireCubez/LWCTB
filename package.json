@@ -4,8 +4,8 @@
   "description": "LWCTB (Language Which Compiles To BBJ) compiler",
   "main": "build/parser.js",
   "scripts": {
-    "test": "make test",
-    "build": "mkdir -p build && node build.js",
+    "test": "node tests/index.js",
+    "build": "node build.js",
 		"clean": "rm -rf build"
   },
   "repository": {

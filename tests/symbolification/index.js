@@ -1,10 +1,15 @@
 const fs = require("fs");
 const assert = require("assert").strict;
 const parser = require("../../build/grammar.js");
-let files = ["let"];
+const symbolify = require("../../build/symbolify.js");
+
+let files = ["basic"];
 for(let file of files) {
 	let code = fs.readFileSync(__dirname + "/" + file + ".lb", "utf-8");
-	let tree = parser.parse(code);
+	let tree = symbolify({
+		fileName: "<test input: " + file + ".lb>",
+		verbosity: 999
+	}, parser.parse(code));
 	let expectedTree = null;
 	try {
 		expectedTree = require("./" + file + ".js");

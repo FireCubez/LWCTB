@@ -2,50 +2,44 @@ module.exports = [
 	{
 		"location": {
 			"start": {
-				"line": 0,
-				"file": "<input>",
-				"flags": [],
-				"col": 1
+				"offset": 0,
+				"line": 1,
+				"column": 1
 			},
 			"end": {
-				"line": 0,
-				"file": "<input>",
-				"flags": [],
-				"col": 18
+				"offset": 19,
+				"line": 1,
+				"column": 20
 			}
 		},
-		"source": "let a = (type) 5;",
+		"source": "let a = (type) \"x\";",
 		"type": "st",
 		"st": {
 			"location": {
 				"start": {
-					"line": 0,
-					"file": "<input>",
-					"flags": [],
-					"col": 1
+					"offset": 0,
+					"line": 1,
+					"column": 1
 				},
 				"end": {
-					"line": 0,
-					"file": "<input>",
-					"flags": [],
-					"col": 18
+					"offset": 19,
+					"line": 1,
+					"column": 20
 				}
 			},
-			"source": "let a = (type) 5;",
+			"source": "let a = (type) \"x\";",
 			"type": "let",
 			"name": {
 				"location": {
 					"start": {
-						"line": 0,
-						"file": "<input>",
-						"flags": [],
-						"col": 5
+						"offset": 4,
+						"line": 1,
+						"column": 5
 					},
 					"end": {
-						"line": 0,
-						"file": "<input>",
-						"flags": [],
-						"col": 6
+						"offset": 5,
+						"line": 1,
+						"column": 6
 					}
 				},
 				"source": "a",
@@ -55,53 +49,51 @@ module.exports = [
 			"val": {
 				"location": {
 					"start": {
-						"line": 0,
-						"file": "<input>",
-						"flags": [],
-						"col": 9
+						"offset": 8,
+						"line": 1,
+						"column": 9
 					},
 					"end": {
-						"line": 0,
-						"file": "<input>",
-						"flags": [],
-						"col": 17
+						"offset": 18,
+						"line": 1,
+						"column": 19
 					}
 				},
-				"source": "(type) 5",
+				"source": "(type) \"x\"",
 				"type": "cast",
 				"a": {
 					"location": {
 						"start": {
-							"line": 0,
-							"file": "<input>",
-							"flags": [],
-							"col": 16
+							"offset": 15,
+							"line": 1,
+							"column": 16
 						},
 						"end": {
-							"line": 0,
-							"file": "<input>",
-							"flags": [],
-							"col": 17
+							"offset": 18,
+							"line": 1,
+							"column": 19
 						}
 					},
-					"source": "5",
-					"type": "posint",
-					"ntype": "dec",
-					"value": 5
+					"source": "\"x\"",
+					"type": "strlit",
+					"inner": {
+						"raw": "x",
+						"value": "x"
+					},
+					"raw": "x",
+					"value": "x"
 				},
 				"restype": {
 					"location": {
 						"start": {
-							"line": 0,
-							"file": "<input>",
-							"flags": [],
-							"col": 10
+							"offset": 9,
+							"line": 1,
+							"column": 10
 						},
 						"end": {
-							"line": 0,
-							"file": "<input>",
-							"flags": [],
-							"col": 14
+							"offset": 13,
+							"line": 1,
+							"column": 14
 						}
 					},
 					"source": "type",

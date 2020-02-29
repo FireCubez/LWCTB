@@ -25,14 +25,9 @@ let options = [
 		help: "Emit a parse tree in JSON format"
 	},
 	{
-		name: "emit-preprocess", type: "string",
-		helpArg: "PATH",
-		help: "Emit the preprocessed source code"
-	},
-	{
-		names: ["include-path", "I"], type: "arrayOfString",
+		names: ["import-path", "I"], type: "arrayOfString",
 		helpArg: "DIRECTORY",
-		help: "Add a directory to be searched for `#include` directives",
+		help: "Add a directory to be searched for imports",
 		default: []
 	},
 	{
@@ -45,19 +40,6 @@ let options = [
 		name: "no-std", type: "bool",
 		help: "Don't include the standard library",
 		default: false
-	},
-	{
-		name: "pre-opts", type: "arrayOfString",
-		helpArg: "OPT",
-		env: "LWCTBC_PRE_OPTS",
-		help: "Passes options to the preprocessor (`cpp` on Linux, `cl` on Windows)",
-		default: []
-	},
-	{
-		name: "use-preprocessor", type: "string",
-		helpArg: "PREPROCESSOR",
-		env: "LWCTBC_PREPROCESSOR",
-		help: "Use a specific preprocessor"
 	},
 	{
 		names: ["force-platform", "Q"], type: "string",
@@ -106,7 +88,6 @@ if(!config.platform) {
 if(config.verbosity > 0) {
 	console.info("lwctbc: info: selected platform:", config.platform);
 	console.info("lwctbc: info: std directory", opts.std_dir);
-	console.info("lwctbc: info: preprocessor", opts.use_preprocessor, opts.pre_opts.join(" "));
 }
 
 config.inputFile = opts._args.shift();
@@ -115,44 +96,50 @@ if(config.inputFile == null) {
 	process.exit(1);
 }
 
-const STAGE_PREPROCESS = 0;
-const STAGE_PARSE = 1;
-const STAGE_TXT = 2;
-const STAGE_BIN = 2;
+/// NEW COMPILATION STEPS ARE ADDED HERE
+config.emitDeps = {
+	"txt": ["bin", bin => {
+		console.error("lwctbc: error: --emit-txt is not supported");
+		process.exit(1);
+	}],
+	"bin": ["symbolify"],
+	"symbolify": ["parse", parsed => {
+		require("./symbolify.js")(config, parsed);
+	}],
+	"parse": ["*input", input => {
+		return require("./grammar.js").parse(input);
+	}],
+};
 
-config.emits = [{
-	name: "preprocess",
-	val: opts.emit_preprocess,
-	stage: STAGE_PREPROCESS
-}, {
-	name: "parse",
-	val: opts.emit_parse,
-	stage: STAGE_PARSE
-}, {
-	name: "bin",
-	val: opts.emit_bin,
-	stage: STAGE_BIN
-}, {
-	name: "text",
-	val: opts.emit_text,
-	stage: STAGE_TXT
-}];
 
-let maxStage = -1;
-for(let emit of config.emits) {
-	if(emit.val && (emit.stage > maxStage)) maxStage = emit.stage;
-}
 
-if(maxStage === -1) {
+
+config.runDeps = (x, cache) => {
+	//if(x.result) return x.result;
+	let argDeps = x.slice(0, -1);
+	let args = [];
+	for(let x of argDeps) {
+		if(cache && cache.has(x)) {
+			args.push(x);
+			continue;
+		}
+		let y;
+		if(typeof x === "function") args.push(y = x());
+		else args.push(y = config.runDeps(config.emitDeps[x], cacher));
+		if(cache) cache.set(x, y);
+	}
+	//x.result =
+	return x[x.length - 1](...args);
+	//return x.result;
+};
+
+config.emits = Object.keys(opts).filter(x => x.startsWith("emit_")).map(x => [x.slice(5), opts[x]]);
+
+if(config.emits.length === 0) {
 	let defaultOut = config.inputFile.replace(/\.[^.]*$/, ".bbj");
-	config.emits.bin = defaultOut;
-	maxStage = STAGE_BIN;
+	config.emits = [["bin", defaultOut]];
 	if(config.verbosity > 0) console.info("lwctbc: info: no --emit-* options specified, assuming `--emit-bin \"" + defaultOut + "\"`");
 }
-
-if(config.verbosity > 0) console.info("lwctbc: info: max stage =", maxStage);
-
-config.maxStage = maxStage;
 
 config.std = opts.no_std ? null : opts.use_std;
 if(config.std == null && opts.use_std != null) {
@@ -160,37 +147,25 @@ if(config.std == null && opts.use_std != null) {
 	process.exit(1);
 }
 
-console.log(config, opts);
+config.importPaths = [...opts.import_path];
 
-config.includePaths = [...opts.include_path];
-
-if(config.std) config.include_paths.push(config.std);
+if(config.std) config.importPaths.push(config.std);
 
 if(config.verbosity > 1) {
 	console.debug("lwctbc: debug: current config after parsing:", config);
 }
 // END OF OPTION PARSING
 
-let fileMap = new Map();
 (async () => {
-	let currentStage = 0;
 	let input = config.inputFile === "-" ? await getStdin() : fs.readFileSync(config.inputFile, "utf-8");
+	config.fileName = config.inputFile;
 	if(config.verbosity > 2) {
 		console.debug("lwctbc: debug: input file", config.inputFile, "contents", input);
 	}
-	fileMap.set(config.inputFile, input);
-	let preprocessEmit = config.emits[currentStage];
-	let stdout = await preprocessEmit.action();
-
-	if(currentStage++ > config.maxStage) process.exit(0);
-	let res = parser.parse(stdout, config.inputFile);
-	let parseEmit = config.emits.shift();
-	if(parseEmit.val != null) fs.writeFileSync(parseEmit.val, JSON.stringify(res.result));
-	for(let val of res.processedLines.linemap.values()) {
-		if(!fileMap.has(val.file)) {
-			let v = val.file === "-" ? await getStdin() : fs.readFileSync(val.file, "utf-8");
-			fileMap.set(val.file, v);
-		}
+	config.emitDeps["*input"] = {result: input};
+	let cache = new Map();
+	for(let [dep, out] of config.emits) {
+		fs.writeFileSync(out, config.runDeps(config.emitDeps[dep], cache));
 	}
 })().catch(e => {
 	console.error(e.stack);

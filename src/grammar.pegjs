@@ -1,37 +1,17 @@
 {
 	function meta(x) {
-		return Object.assign({location: xlocation(), source: text()}, x);
+		return Object.assign({location: location(), source: text()}, x);
 	}
 
-	function xlocation() {
-		let loc = location();
-		let s = $$LWCTB.getLineInfo(loc.start.line);
-		let e = $$LWCTB.getLineInfo(loc.end.line);
-		return {
-			start: {
-				line: s.line,
-				file: s.file,
-				flags: s.flags,
-				col: loc.start.column
-			},
-			end: {
-				line: e.line,
-				file: e.file,
-				flags: e.flags,
-				col: loc.end.column
-			},
-		};
-	}
-
-	const KEYWORDS = ["goto", "if", "else", "while", "do", "let", "bbj"];
-	const RESERVED = ["@setstack", "@setstacksize", "struct", "static", "const"];
+	const KEYWORDS = ["goto", "if", "else", "while", "struct", "extern", "do", "let", "bbj"];
+	const RESERVED = ["@setstack", "@setstacksize", "static", "const"];
 	const BUILTINS = [];
 }
 
 Program "program" = sts:(_n s:Statement {return s})* _n {return sts} / "" {return []}
 
 Statement "statement" = labels:(l:Label _ ":" _n {return l})* st:(
-	ExprSt / Goto / Let / Assign / Block / If / While / BBJ
+	ExprSt / Goto / Let / Assign / Block / If / While / StructDef / BBJ / Import
 ) {return meta({
 	type: "st",
 	st, labels
@@ -48,11 +28,11 @@ Goto = "goto" _ labels:(l:Label _ ":" _ {return l})* dest:CTExpr _ ";" {return m
 	labels
 })}
 
-Let = "let" __ name:Identifier _ "=" _ val:Expr _ ";" {return meta({
+Let = "let" __ name:Identifier _ val:("=" _ val:Expr _ {return val})? ";" {return meta({
 	type: "let",
 	name, val
 })} / "let" _ "[" _ asize:CTExpr _ "]" _ name:Identifier _ ";" {return meta({
-	type: "let",
+	type: "let[]",
 	name, asize
 })}
 
@@ -76,11 +56,22 @@ While "while loop" = isDo:("do" __)? "while" __ cond:Expr _ body:Block {return m
 	cond, body, isDo: !!isDo
 })}
 
+StructDef "struct definition" = "struct" __ name:Identifier _n "{" fields:(_n ftype:Identifier _ fname:Identifier _ ";" {return meta({
+	ftype, name: fname
+})})* _n "}" {return meta({
+	type: "structdef",
+	name, fields
+})}
+
 BBJ "inline BBJ" = "bbj" _ "{" body:(_n x:CTExpr {return x})* _n "}" {return meta({
 	type: "bbj",
 	body
 })}
 
+Import "extern import statement" = "extern" __ x:StringLiteral _ ";" {return meta({
+	type: "import",
+	imp: x
+})}
 Assignable "assignable value" = e:Expr & {
 	if(e.type === "access" && e.list.length && e.list[e.list.length - 1].type === "index") return true;
 	if(e.base.type === "uop*") return true;
@@ -105,6 +96,10 @@ Prec3Expr = "(" _ restype:Identifier _ ")" _ a:Prec3Expr {return meta({
 })} / op:[!~+*-] _ a:Prec3Expr {return meta({
 	type: "uop" + op,
 	a
+})} / "(" _ e:Expr _ ")" {return meta({
+	type: "parens",
+	expr: e,
+	unparened: e.type === "parens" ? e.unparened : e
 })} / AccessExpr / PositiveInteger / StringLiteral
 
 AccessExpr = base:(Identifier / Label / "(" _ e:Expr _ ")" {
@@ -171,16 +166,17 @@ Identifier "identifier" = head:[A-Za-z$_@] tail:[A-Za-z0-9$_@]* ! {return KEYWOR
 	})
 }
 
-Label "label name" = "." x:Identifier {return meta({
-	type: "labelname",
+Label "label name" = "." e:"extern"? __ x:Identifier {return meta({
+	type: "label",
 	value: x.value,
-	id: x
+	id: x,
+	extern: !!e
 })}
 
 PositiveInteger "positive integer" = ntype:("0x" [0-9A-Fa-f]+ {return "hex"} / "0o" [0-7]+ {return "oct"} / "0b" [01]+ {return "bin"} / "0" {return "dec"} / [1-9][0-9]* {return "dec"}) {return meta({
 	type: "posint",
 	ntype,
-	value: Number(text())
+	value: BigInt(text())
 })}
 
 StringLiteral "string literal" = '"' inner:StringLiteralInner '"' {

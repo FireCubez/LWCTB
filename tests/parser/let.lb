@@ -1,1 +1,1 @@
-let a = (type) 5;
+let a = (type) "x";

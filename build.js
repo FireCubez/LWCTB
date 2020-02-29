@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const child_process = require("child_process");
 
+if(!fs.existsSync("build")) fs.mkdirSync("build");
+
 for(let f of fs.readdirSync("src")) {
 	console.log("File:", f);
 	if(f.endsWith(".pegjs")) {
