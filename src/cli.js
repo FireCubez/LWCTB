@@ -17,7 +17,7 @@ let options = [
 	{
 		name: "emit-txt", type: "string",
 		helpArg: "PATH",
-		help: "Emit a file containing 8-byte integers in decimal format corresponding to the data which would be produced by --emit-bin"
+		help: "(CURRENTLY IGNORED) Emit a file containing 8-byte integers in decimal format corresponding to the data which would be produced by --emit-bin"
 	},
 	{
 		name: "emit-parse", type: "string",
