@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node tests/index.js",
     "build": "node build.js",
-		"clean": "rm -rf build"
+    "clean": "rm -rf build"
   },
   "repository": {
     "type": "git",

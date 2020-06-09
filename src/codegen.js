@@ -23,6 +23,8 @@ module.exports = (config, tree) => {
 
 	let deferredLabelRefs = [];
 
+	let utf8Encoder = new TextEncoder();
+	
 	for(let i = buf.length; i < 0x10000; i++) {
 		genBBJByte(0);
 	}
@@ -33,7 +35,7 @@ module.exports = (config, tree) => {
 		}
 	}
 	for(let st of tree.sts) {
-		genStatement(buf);
+		genStatement(st);
 	}
 
 	for(let ref of deferredLabelRefs) {
@@ -72,6 +74,7 @@ module.exports = (config, tree) => {
 	}
 
 	function genStatement(st) {
+		console.log(st);
 		for(let label of st.labels) {
 			label.addr = getBufLen();
 		}
@@ -88,8 +91,9 @@ module.exports = (config, tree) => {
 			case "exprst":
 				genExpression(st.expr);
 				break;
+			default:
+				throw new Error("Unknown statement type `" + st.type + "`");
 		}
-		throw new Error("Unknown statement type `" + st.type + "`");
 	}
 
 	function genExpression(expr) {
@@ -126,7 +130,7 @@ module.exports = (config, tree) => {
 				genDeferredLabel(expr.refer);
 				break;
 			default:
-				
+				throw new ERROR("UNIMPLEMENTED <genExpression(<operation " + expr.type + ")>")
 				break;
 		}
 	}
@@ -141,9 +145,12 @@ module.exports = (config, tree) => {
 		}
 	}
 
-	function getSetMemDC(dst, n, amt=1) {
+	function genSetMemDC(dst, n, amt=1) {
 		let c = getConstAddr(n);
-		for(let i = 0; i < amt; i++) genSetMemDD(dst, c);
+		for(let i = 0; i < amt; i++) {
+			genSetMemDD(dst, c);
+			dst++;
+		}
 	}
 
 	function genSetMemDCBig(dst, n, bytes) {
@@ -197,7 +204,6 @@ module.exports = (config, tree) => {
 		return o;
 	}
 
-	let utf8Encoder = new TextEncoder();
 	function utf8Bytes(str) {
 		return utf8Encoder.encode(str);
 	}

@@ -26,26 +26,32 @@ const fs = require("fs");
 module.exports = (config, parsed) => {
 	let builtinScope = newScope();
 	let n8Type = {
+		name: "n8",
 		type: "builtin",
 		size: 1
 	};
 	let n16Type = {
+		name: "n16",
 		type: "builtin",
 		size: 2
 	};
 	let n32Type = {
+		name: "n32",
 		type: "builtin",
 		size: 4
 	};
 	let n64Type = {
+		name: "n64",
 		type: "builtin",
 		size: 8
 	};
 	let n128Type = {
+		name: "n128",
 		type: "builtin",
 		size: 16
 	};
 	let strType = {
+		name: "str",
 		type: "builtin",
 		size: 16
 	};
@@ -107,7 +113,9 @@ module.exports = (config, parsed) => {
 	function arrayType(size, inner) {
 		return {
 			type: "array",
-			innerType: inner
+			innerType: inner,
+			size,
+			name: inner.name + "[" + size + "]"
 		};
 	}
 
@@ -119,10 +127,9 @@ module.exports = (config, parsed) => {
 				xtype: processType(x.restype)
 			};
 		}
-		if(x.type === "access") throw new Error("<UNIMPLEMENTED processExpr(<access expression>)>"); /*return {
-			type: "access",
-			base: processExpr(x.base),
-			list: x.list.map(e =>
+		if(x.type === "access") {
+			let base = processExpr(x.base);
+			let list = x.list.map(e =>
 				e.type === "call" ? {
 					type: "call",
 					args: e.args.map(processExpr)
@@ -130,9 +137,27 @@ module.exports = (config, parsed) => {
 					type: "index",
 					index: processExpr(e.index)
 				}
-			),
-			xtype: "UNIMPLEMENTED"
-		}*/
+			);
+			let xtype = list.reduce((curType, item) => {
+				if(item.type === "call") {
+					if(curType.type !== "fn") {
+						console.error("lwctbc: error: tried to call an expression of type `" + curType.name + "` (" + ploc(x) + ")");
+					}
+					return curType.returnValue;
+				} else {
+					if(curType.type !== "array") {
+						console.error("lwctbc: error: tried to get field `" + curType + "` on an expression of type `" + curType.name + "` (" + ploc(x) + ")");
+					}
+					return curType.returnValue;
+				}
+			}, base.xtype);
+			return {
+				type: "access",
+				base,
+				list,
+				xtype
+			};
+		}
 		if(x.type === "posint") {
 			return {
 				...x,
@@ -140,7 +165,7 @@ module.exports = (config, parsed) => {
 			};
 		}
 		if(x.type === "strlit") {
-			retur {
+			return {
 				...x,
 				xtype: strType
 			};
@@ -157,10 +182,12 @@ module.exports = (config, parsed) => {
 			deferredLabels.push(v);
 			return v;
 		}
+		let opA = processExpr(x.a);
 		return {
 			type: x.type,
-			a: processExpr(x.a),
-			b: x.b && processExpr(x.b)
+			a: opA,
+			b: x.b && processExpr(x.b),
+			xtype: opA.xtype
 		}
 	}
 
@@ -245,13 +272,17 @@ module.exports = (config, parsed) => {
 						variable: v,
 						name: st.name.value
 					};
-					break;
 				case "let[]":
 					let va;
 					let inner = processType(st.innerType);
+					let asize = constEval(st.asize, false);
+					if(asize == null) {
+						console.error("lwctbc: error: expected constant value for array size (" + ploc(st.asize) + ")");
+						process.exit(1);
+					}
 					scopes[scopes.length - 1].vars.set(st.name.value, va = {
 						type: "array",
-						size: processExpr(st.asize, false),
+						size: asize,
 						register: st.register,
 						inner,
 						xtype: arrayType(inner)
@@ -272,6 +303,7 @@ module.exports = (config, parsed) => {
 					let sts = [];
 					for(let stlabel of st.body) {
 						let x = processStmt(stlabel);
+						console.log("stlabel =", JSON.stringify(stlabel));
 						if(x.pragma) {
 							console.error("lwctbc: error: cannot be used except at top level (" + ploc(stlabel) + ")");
 							process.exit(1);
@@ -334,6 +366,7 @@ module.exports = (config, parsed) => {
 			throw new Error("Unknown statement type `" + st.type + "`");
 		})();
 		x.labels = stlabel.labels;
+		return x;
 	}
 
 	function processType(x) {

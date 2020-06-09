@@ -29,10 +29,22 @@
 						"value": "test"
 					},
 					"raw": "test",
-					"value": "test"
+					"value": "test",
+					"xtype": {
+						"name": "str",
+						"type": "builtin",
+						"size": 16
+					}
+				},
+				"register": false,
+				"xtype": {
+					"name": "str",
+					"type": "builtin",
+					"size": 16
 				}
 			},
-			"name": "x"
+			"name": "x",
+			"labels": []
 		},
 		{
 			"type": "block",
@@ -84,21 +96,52 @@
 											"value": "test"
 										},
 										"raw": "test",
-										"value": "test"
+										"value": "test",
+										"xtype": {
+											"name": "str",
+											"type": "builtin",
+											"size": 16
+										}
+									},
+									"register": false,
+									"xtype": {
+										"name": "str",
+										"type": "builtin",
+										"size": 16
 									}
+								},
+								"xtype": {
+									"name": "str",
+									"type": "builtin",
+									"size": 16
 								}
 							},
-							"list": []
+							"list": [],
+							"xtype": {
+								"name": "str",
+								"type": "builtin",
+								"size": 16
+							}
+						},
+						"register": false,
+						"xtype": {
+							"name": "str",
+							"type": "builtin",
+							"size": 16
 						}
 					},
-					"name": "y"
+					"name": "y",
+					"labels": []
 				}
 			],
 			"scope": {
 				"types": {},
 				"vars": {},
 				"labels": {}
-			}
+			},
+			"labels": []
 		}
-	]
+	],
+	"multi": false,
+	"align": 1
 }
