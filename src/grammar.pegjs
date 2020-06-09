@@ -3,7 +3,7 @@
 		return Object.assign({location: location(), source: text()}, x);
 	}
 
-	const KEYWORDS = ["goto", "if", "else", "while", "struct", "extern", "do", "let", "bbj"];
+	const KEYWORDS = ["goto", "if", "else", "while", "struct", "extern", "do", "let", "bbj", "@align", "@multi"];
 	const RESERVED = ["@setstack", "@setstacksize", "static", "const"];
 	const BUILTINS = [];
 }
@@ -11,10 +11,17 @@
 Program "program" = sts:(_n s:Statement {return s})* _n {return sts} / "" {return []}
 
 Statement "statement" = labels:(l:Label _ ":" _n {return l})* st:(
-	ExprSt / Goto / Let / Assign / Block / If / While / StructDef / BBJ / Import
+	Pragma / ExprSt / Goto / Let / Assign / Block / If / While / StructDef / BBJ / Import
 ) {return meta({
 	type: "st",
 	st, labels
+})}
+
+Pragma "pragma" = "@align" __ n:CTExpr {return meta({
+	type: "pragma@align",
+	n
+})} / "@multi" {return meta({
+	type: "pragma@multi"
 })}
 
 ExprSt = e:Expr _ ";" {return meta({
@@ -28,12 +35,14 @@ Goto = "goto" _ labels:(l:Label _ ":" _ {return l})* dest:CTExpr _ ";" {return m
 	labels
 })}
 
-Let = "let" __ name:Identifier _ val:("=" _ val:Expr _ {return val})? ";" {return meta({
+Let = "let" __ reg:("register" __)? name:Identifier _ val:("=" _ val:Expr _ {return val})? ";" {return meta({
 	type: "let",
-	name, val
-})} / "let" _ "[" _ asize:CTExpr _ "]" _ name:Identifier _ ";" {return meta({
+	name, val,
+	register: !!reg
+})} / "let" __ reg:("register" __)? innerType:Identifier _ "[" _ asize:CTExpr _ "]" _ name:Identifier _ ";" {return meta({
 	type: "let[]",
-	name, asize
+	name, asize, innerType,
+	register: !!reg
 })}
 
 Assign = dst:Assignable _ "=" _ src:Expr {return meta({
@@ -143,10 +152,6 @@ CTPrec3Expr = "(" _ restype:Identifier _ ")" _ a:Prec3Expr {return meta({
 })} / CTAccessExpr / PositiveInteger / StringLiteral
 
 CTAccessExpr = base:(Label / "(" _ e:CTExpr _ ")" {return e}) list:(
-	"(" a:(_ head:CTExpr tail:(_ "," _ e:CTExpr {return e})* _ {return [head].concat(tail)} / _ {return []}) ")" {return meta({
-		type: "call",
-		args: a
-	})} /
 	"[" _ index:CTExpr _ "]" {return meta({
 		type: "index",
 		index

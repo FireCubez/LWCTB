@@ -5,7 +5,7 @@
 Import the package, and call the `parse` method  to get an AST. Use `npm test` to test.
 
 # CLI (`lwctbc`)
-> *Note: only --emit-parse is currently supported. --emit-text and --emit-bin are currently unimplemented and will be ignored*
+> *Note: only --emit-parse and --emit-bin are currently supported. --emit-text is currently unimplemented and will be ignored*
 
 `lwctbc` is a command-line interface for the LWCTB compiler. There is currently no automatic setup; you must set up the compiler on your own. Here are instructions for that:
 

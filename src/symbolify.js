@@ -1,4 +1,4 @@
- path = require("path");
+const path = require("path");
 const fs = require("fs");
 // The 2nd stage of parsing.
 //
@@ -24,28 +24,77 @@ const fs = require("fs");
 //
 
 module.exports = (config, parsed) => {
-	let scopes = [newScope()];
+	let builtinScope = newScope();
+	let n8Type = {
+		type: "builtin",
+		size: 1
+	};
+	let n16Type = {
+		type: "builtin",
+		size: 2
+	};
+	let n32Type = {
+		type: "builtin",
+		size: 4
+	};
+	let n64Type = {
+		type: "builtin",
+		size: 8
+	};
+	let n128Type = {
+		type: "builtin",
+		size: 16
+	};
+	let strType = {
+		type: "builtin",
+		size: 16
+	};
+	let unknownIntegerType = {
+		type: "unknownInteger"
+	};
+	
+	builtinScope.types.set("n8", n8Type);
+	builtinScope.types.set("n16", n16Type);
+	builtinScope.types.set("n32", n32Type);
+	builtinScope.types.set("n64", n64Type);
+	builtinScope.types.set("n128", n128Type);
+	builtinScope.types.set("str", strType);
+	builtinScope.types.set("addr", n64Type);
+	let scopes = [builtinScope];
 	let public = newScope();
 	let sts = [];
 	let deferredLabels = [];
+	let align = 1, multi = false;
 	for(let stlabel of parsed) {
 		let x = processStmt(stlabel);
-		if(x != null) sts.push(x);
+		if(x != null) {
+			if(x.pragma === 1) {
+				align = constEval(x.n, false);
+				if(align == null) {
+					console.error("lwctbc: error: @align value must be a positive integer");
+					process.exit(1);
+				}
+			} else if(x.pragma === 2) {
+				multi = true;
+			} else sts.push(x);
+		}
 	}
 
-	for(let label of deferredLabels) {
+	resolveLabels: for(let label of deferredLabels) {
 		let name = label.value;
 		for(let i = scopes.length - 1; i >= 0; i--) {
 			for(let [k, v] of scopes[i].labels) {
 				if(k === name) {
 					label.refer = v;
-					break;
+					continue resolveLabels;
 				}
 			}
 		}
+		console.error("lwctbc: error: label `" + name + "` could not be resolved (" + ploc(label) + ")");
+		process.exit(1);
 	}
 
-	return {public, sts};
+	return {public, sts, multi, align};
 
 	function newScope() {
 		return {
@@ -55,13 +104,22 @@ module.exports = (config, parsed) => {
 		};
 	}
 
-	function processExpr(x) {
-		if(x.type === "cast") return {
-			type: "cast",
-			a: processExpr(x.a),
-			restype: processType(x.restype)
+	function arrayType(size, inner) {
+		return {
+			type: "array",
+			innerType: inner
 		};
-		if(x.type === "access") return {
+	}
+
+	function processExpr(x) {
+		if(x.type === "cast") {
+			return {
+				type: "cast",
+				a: processExpr(x.a),
+				xtype: processType(x.restype)
+			};
+		}
+		if(x.type === "access") throw new Error("<UNIMPLEMENTED processExpr(<access expression>)>"); /*return {
 			type: "access",
 			base: processExpr(x.base),
 			list: x.list.map(e =>
@@ -72,21 +130,29 @@ module.exports = (config, parsed) => {
 					type: "index",
 					index: processExpr(e.index)
 				}
-			)
-		}
+			),
+			xtype: "UNIMPLEMENTED"
+		}*/
 		if(x.type === "posint") {
-			return x;
+			return {
+				...x,
+				xtype: unknownIntegerType
+			};
 		}
 		if(x.type === "strlit") {
-			return x;
+			retur {
+				...x,
+				xtype: strType
+			};
 		}
 		if(x.type === "id") return processVar(x);
 		if(x.type === "label") { // only in <AccessExpr>.base, but whatever, we can handle it here
-			let v = { // let v = x; will probably break since deferredLabels would mutate it.
+			let v = { // let v = x will probably break since deferredLabels would mutate it.
 				type: "label",
 				value: x.value,
 				id: x.id,
-				extern: x.extern
+				extern: x.extern,
+				xtype: n64Type
 			};
 			deferredLabels.push(v);
 			return v;
@@ -94,150 +160,190 @@ module.exports = (config, parsed) => {
 		return {
 			type: x.type,
 			a: processExpr(x.a),
-			b: x.b && proceessExpr(x.b)
+			b: x.b && processExpr(x.b)
 		}
 	}
 
 	function processStmt(stlabel) {
+		let st = stlabel.st;
 		for(let label of stlabel.labels) {
 			scopes[scopes.length - 1].labels.set(label.value, label);
+			label.labelType = "statement";
+			label.statement = st;
 			if(label.extern) public.set(label.value, label);
 		}
-		let st = stlabel.st;
-		switch(st.type) {
-			case "import":
-				let file = null;
-				let imp = st.imp.value;
-				for(let p of config.importPaths) {
-					let x = path.join(p, imp);
-					if(config.verbosity > 1) {
-						console.debug("lwctbc: debug: searching for `" + imp + "` in path `" + p + "`: `" + x + "`");
-					}
-					if(fs.existsSync(x)) {
-						file = x;
+		let x = (() => {
+			switch(st.type) {
+				case "import":
+					let file = null;
+					let imp = st.imp.value;
+					for(let p of config.importPaths) {
+						let x = path.join(p, imp);
 						if(config.verbosity > 1) {
-							console.debug("lwctbc: debug: found`");
+							console.debug("lwctbc: debug: searching for `" + imp + "` in path `" + p + "`: `" + x + "`");
+						}
+						if(fs.existsSync(x)) {
+							file = x;
+							if(config.verbosity > 1) {
+								console.debug("lwctbc: debug: found`");
+							}
 						}
 					}
-				}
-				if(file == null) {
-					console.error("lwctbc: error: cannot find import file `" + imp + "`");
-					console.error("lwctbc: error in file " + config.fileName);
-					process.exit(1);
-				}
-
-				config.emitDeps["*input"] = fs.readFileSync(file);
-
-				let oldFile = config.fileName || "<unknown file>";
-				config.fileName = file;
-				let imported = config.runDeps(config.emitDeps.symbolify);
-				config.fileName = oldFile;
-				for(let [k, v] of imported.public.types) {
-					scopes[scopes.length - 1].types.set(k, v);
-				}
-				for(let [k, v] of imported.public.labels) {
-					scopes[scopes.length - 1].labels.set(k, v);
-				}
-				return null;
-			case "exprst":
-				return {
-					type: "exprst",
-					expr: processExpr(st.expr)
-				};
-			case "goto":
-				let labels = st.labels.map(x => {
-					scopes[scopes.length - 1].labels.set(x.value, {
-						scope: scope[scopes.length - 1],
-						...x
-					});
-				}); // placed first for side effects; `goto .x:.x` is possible like this
-				return {
-					type: "goto",
-					dest: processExpr(st.dest),
-					labels
-				};
-			case "let":
-				let v;
-				scopes[scopes.length - 1].vars.set(st.name.value, v = {
-					type: "var",
-					value: processExpr(st.val)
-				});
-				return {
-					type: "let",
-					variable: v,
-					name: st.name.value
-				};
-				break;
-			case "let[]":
-				let va;
-				scopes[scopes.length - 1].vars.set(st.name.value, va = {
-					type: "array",
-					size: processExpr(st.asize)
-				});
-				return {
-					type: "let",
-					variable: va,
-					name: st.name.value
-				};
-			case "assign":
-				return {
-					type: "assign",
-					dst: processExpr(dst),
-					src: processExpr(src)
-				};
-			case "block":
-				scopes.push(newScope());
-				let sts = [];
-				for(let stlabel of st.body) {
-					let x = processStmt(stlabel);
-					if(x != null) sts.push(x);
-				}
-				return {
-					type: "block",
-					body: sts,
-					scope: scopes.pop()
-				};
-			case "if":
-				return {
-					type: "if",
-					cond: processExpr(st.cond),
-					then: processStmt(st.then),
-					otherwise: processStmt(st.otherwise),
-				};
-			case "while":
-				return {
-					type: "while",
-					cond: processExpr(st.cond),
-					body: processStmt(st.body),
-					isDo: st.isDo
-				};
-			case "structdef":
-				let fields = new Map();
-				for(let field of st.fields) {
-					if(fields.has(field.name)) {
-						console.error("lwctbc: error: field `" + field.name + "` has been previously defined (" + ploc(field) + ")");
+					if(file == null) {
+						console.error("lwctbc: error: cannot find import file `" + imp + "`");
+						console.error("lwctbc: error in file " + config.fileName);
 						process.exit(1);
-					} else {
-						fields.set(field.name, field.ftype);
 					}
-				}
-				scopes[scopes.length - 1].types.set(st.name, {
-					type: "struct",
-					name: st.name,
-					fields
-				});
-				return null;
-			case "bbj":
-				return {
-					type: "bbj",
-					body: st.body.map(x => processExpr(x))
-				};
-		}
-		throw new Error("Unknown statement type `" + st.type + "`");
+
+					config.emitDeps["*input"] = fs.readFileSync(file);
+
+					let oldFile = config.fileName || "<unknown file>";
+					config.fileName = file;
+					let imported = config.runDeps(config.emitDeps.symbolify);
+					config.fileName = oldFile;
+					for(let [k, v] of imported.public.types) {
+						scopes[scopes.length - 1].types.set(k, v);
+					}
+					for(let [k, v] of imported.public.labels) {
+						scopes[scopes.length - 1].labels.set(k, v);
+					}
+					return {
+						type: "import",
+						imported
+					};
+				case "exprst":
+					return {
+						type: "exprst",
+						expr: processExpr(st.expr)
+					};
+				case "goto":
+					let labels = st.labels.map(x => {
+						let l;
+						scopes[scopes.length - 1].labels.set(x.value, l = {
+							scope: scope[scopes.length - 1],
+							...x,
+							labelType: "goto",
+							statement: st
+						});
+						return l;
+					}); // placed first for side effects; `goto .x:.x` is possible like this
+					return {
+						type: "goto",
+						dest: processExpr(st.dest),
+						labels
+					};
+				case "let":
+					let v, val;
+					scopes[scopes.length - 1].vars.set(st.name.value, v = {
+						type: "var",
+						value: val = processExpr(st.val),
+						register: st.register,
+						xtype: val.xtype
+					});
+					return {
+						type: "let",
+						variable: v,
+						name: st.name.value
+					};
+					break;
+				case "let[]":
+					let va;
+					let inner = processType(st.innerType);
+					scopes[scopes.length - 1].vars.set(st.name.value, va = {
+						type: "array",
+						size: processExpr(st.asize, false),
+						register: st.register,
+						inner,
+						xtype: arrayType(inner)
+					});
+					return {
+						type: "let",
+						variable: va,
+						name: st.name.value
+					};
+				case "assign":
+					return {
+						type: "assign",
+						dst: processExpr(dst),
+						src: processExpr(src)
+					};
+				case "block":
+					scopes.push(newScope());
+					let sts = [];
+					for(let stlabel of st.body) {
+						let x = processStmt(stlabel);
+						if(x.pragma) {
+							console.error("lwctbc: error: cannot be used except at top level (" + ploc(stlabel) + ")");
+							process.exit(1);
+						}
+						if(x != null) sts.push(x);
+					}
+					return {
+						type: "block",
+						body: sts,
+						scope: scopes.pop()
+					};
+				case "if":
+					return {
+						type: "if",
+						cond: processExpr(st.cond),
+						then: processStmt(st.then),
+						otherwise: processStmt(st.otherwise),
+					};
+				case "while":
+					return {
+						type: "while",
+						cond: processExpr(st.cond),
+						body: processStmt(st.body),
+						isDo: st.isDo
+					};
+				case "structdef":
+					let fields = new Map();
+					for(let field of st.fields) {
+						if(fields.has(field.name)) {
+							console.error("lwctbc: error: field `" + field.name + "` has been previously defined (" + ploc(field) + ")");
+							process.exit(1);
+						} else {
+							fields.set(field.name, field.ftype);
+						}
+					}
+					scopes[scopes.length - 1].types.set(st.name, {
+						type: "struct",
+						name: st.name,
+						fields
+					});
+					return null;
+				case "bbj":
+					return {
+						type: "bbj",
+						body: st.body.map(x => processExpr(x, false))
+					};
+
+				// ------
+
+				case "pragma@align":
+					return {
+						pragma: 1,
+						n: constEval(st.n, false)
+					};
+				case "pragma@multi":
+					return {
+						pragma: 2
+					};
+			}
+			throw new Error("Unknown statement type `" + st.type + "`");
+		})();
+		x.labels = stlabel.labels;
 	}
 
 	function processType(x) {
-		let t = scopes[scopes.length - 1].types.get(x.value);
+		let t;
+		for(let i = scopes.length - 1; i >= 0 && t == null; i--) {
+			if(config.verbosity > 1) {
+				console.debug("lwctbc: debug: finding type `" + x.value + "` in scope", i + ",", scopes[i]);
+			}
+			t = scopes[i].types.get(x.value);
+		}
 		if(t == null) {
 			console.error("lwctbc: error: type `" + x.value + "` is not defined (" + ploc(x) + ")");
 			process.exit(1);
@@ -263,11 +369,25 @@ module.exports = (config, parsed) => {
 		return {
 			type: "var",
 			id: x,
-			var: t
+			var: t,
+			xtype: t.xtype
 		};
 	}
 
 	function ploc(x) {
 		return `${config.fileName} from ${x.location.start.line}:${x.location.start.column} to ${x.location.end.line}:${x.location.end.column}`;
 	}
+
+	function constEval(x, allowStrings=true) {
+		switch(x.type) {
+			case "posint":
+				return x.value;
+			case "strlit":
+				if(allowStrings) return x.value;
+				return null;
+			default:
+				throw new Error("<UNIMPLEMENTED constEval>");
+		}
+	}
+
 };

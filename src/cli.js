@@ -102,9 +102,11 @@ config.emitDeps = {
 		console.error("lwctbc: error: --emit-txt is not supported");
 		process.exit(1);
 	}],
-	"bin": ["symbolify"],
+	"bin": ["symbolify", tree => {
+		return require("./codegen.js")(config, tree);
+	}],
 	"symbolify": ["parse", parsed => {
-		require("./symbolify.js")(config, parsed);
+		return require("./symbolify.js")(config, parsed);
 	}],
 	"parse": ["*input", input => {
 		return require("./grammar.js").parse(input);
