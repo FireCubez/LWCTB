@@ -28,35 +28,42 @@ module.exports = (config, parsed) => {
 	let n8Type = {
 		name: "n8",
 		type: "builtin",
+		isIntegerType: true,
 		size: 1
 	};
 	let n16Type = {
 		name: "n16",
 		type: "builtin",
+		isIntegerType: true,
 		size: 2
 	};
 	let n32Type = {
 		name: "n32",
 		type: "builtin",
+		isIntegerType: true,
 		size: 4
 	};
 	let n64Type = {
 		name: "n64",
 		type: "builtin",
+		isIntegerType: true,
 		size: 8
 	};
 	let n128Type = {
 		name: "n128",
 		type: "builtin",
+		isIntegerType: true,
 		size: 16
 	};
 	let strType = {
 		name: "str",
 		type: "builtin",
+		isIntegerType: true,
 		size: 16
 	};
 	let unknownIntegerType = {
-		type: "unknownInteger"
+		type: "unknownInteger",
+		isIntegerType: true
 	};
 	
 	builtinScope.types.set("n8", n8Type);
@@ -183,12 +190,26 @@ module.exports = (config, parsed) => {
 			return v;
 		}
 		let opA = processExpr(x.a);
+		let opB = x.b && processExpr(x.b);
+		let opName = x.type[0] === "u" ? x.type.slice(3) : x.type.slice(1);
+		if(opB) {
+			if(opA.xtype !== opB.xtype) {
+				console.error("lwctbc: error: tried to perform operation `" + opName + "` on different types: `" + opA.xtype.name + "` and `" + opB.xtype.name + "` (" + ploc(x) + ")");
+				process.exit(1);
+			}
+		}
+		if(x.type === "uop+" || x.type === "uop-" || x.type === "uop~" || x.type === "uop*") {
+			if(!opA.xtype.isIntegerType) {
+				console.error("lwctbc: error: tried to perform operation `" + opName + "` on value of type `" + opA.xtype.name + "` instead of integer type (" + ploc(x) + ")");
+				process.exit(1);
+			}
+		}
 		return {
 			type: x.type,
 			a: opA,
-			b: x.b && processExpr(x.b),
+			b: opB,
 			xtype: opA.xtype
-		}
+		};
 	}
 
 	function processStmt(stlabel) {
@@ -197,7 +218,7 @@ module.exports = (config, parsed) => {
 			scopes[scopes.length - 1].labels.set(label.value, label);
 			label.labelType = "statement";
 			label.statement = st;
-			if(label.extern) public.set(label.value, label);
+			if(label.extern) public.labels.set(label.value, label);
 		}
 		let x = (() => {
 			switch(st.type) {
@@ -222,7 +243,7 @@ module.exports = (config, parsed) => {
 						process.exit(1);
 					}
 
-					config.emitDeps["*input"] = fs.readFileSync(file);
+					config.emitDeps["*input"] = {result: fs.readFileSync(file, "utf-8")};
 
 					let oldFile = config.fileName || "<unknown file>";
 					config.fileName = file;
@@ -285,7 +306,7 @@ module.exports = (config, parsed) => {
 						size: asize,
 						register: st.register,
 						inner,
-						xtype: arrayType(inner)
+						xtype: arrayType(asize, inner)
 					});
 					return {
 						type: "let",
@@ -348,7 +369,7 @@ module.exports = (config, parsed) => {
 				case "bbj":
 					return {
 						type: "bbj",
-						body: st.body.map(x => processExpr(x, false))
+						body: st.body.map(x => processExpr(x))
 					};
 
 				// ------
@@ -365,7 +386,7 @@ module.exports = (config, parsed) => {
 			}
 			throw new Error("Unknown statement type `" + st.type + "`");
 		})();
-		x.labels = stlabel.labels;
+		if(x != null) x.labels = stlabel.labels;
 		return x;
 	}
 

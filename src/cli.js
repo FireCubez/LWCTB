@@ -6,6 +6,8 @@ const fs = require("fs");
 
 const parser = require("./parser.js");
 
+getStdin.tty = true;
+
 let options = [
 	{names: ["help", "h"], type: "bool", help: "Print help and exit."},
 	{names: ["verbose", "v"], type: "arrayOfBool", help: "Increase verbosity (can be used multiple times)", default: []},
@@ -42,6 +44,11 @@ let options = [
 		default: false
 	},
 	{
+		name: "no-math", type: "bool",
+		help: "Don't create lookup tables for arithmetic (decreases binary size alot)",
+		default: false
+	},
+	{
 		names: ["force-platform", "Q"], type: "string",
 		helpArg: "PLATFORM",
 		env: "LWCTBC_PLATFORM",
@@ -67,7 +74,7 @@ ${help}`);
 let config = {};
 config.verbosity = opts.verbose.length;
 config.platform = opts.force_platform;
-
+config.noMath = opts.no_math;
 if(config.platform === "w") config.platform = "windows";
 else if(config.platform === "l") config.platform = "linux";
 else if(config.platform) {
@@ -117,7 +124,8 @@ config.emitDeps = {
 
 
 config.runDeps = (x, cache) => {
-	//if(x.result) return x.result;
+	console.log("x =", x);
+	if(x.result != null) return x.result;
 	let argDeps = x.slice(0, -1);
 	let args = [];
 	for(let x of argDeps) {
@@ -127,7 +135,7 @@ config.runDeps = (x, cache) => {
 		}
 		let y;
 		if(typeof x === "function") args.push(y = x());
-		else args.push(y = config.runDeps(config.emitDeps[x], cacher));
+		else args.push(y = config.runDeps(config.emitDeps[x], cache));
 		if(cache) cache.set(x, y);
 	}
 	//x.result =

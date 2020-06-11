@@ -83,7 +83,7 @@ Import "extern import statement" = "extern" __ x:StringLiteral _ ";" {return met
 })}
 Assignable "assignable value" = e:Expr & {
 	if(e.type === "access" && e.list.length && e.list[e.list.length - 1].type === "index") return true;
-	if(e.base.type === "uop*") return true;
+	if(e.type === "uop*") return true;
 	return false;
 } {return e}
 
@@ -149,17 +149,7 @@ CTPrec3Expr = "(" _ restype:Identifier _ ")" _ a:Prec3Expr {return meta({
 })} / op:[!~+-] a:CTPrec3Expr {return meta({
 	type: "uop" + op,
 	a
-})} / CTAccessExpr / PositiveInteger / StringLiteral
-
-CTAccessExpr = base:(Label / "(" _ e:CTExpr _ ")" {return e}) list:(
-	"[" _ index:CTExpr _ "]" {return meta({
-		type: "index",
-		index
-	})}
-)* {return meta({
-	type: "access",
-	base, list
-})}
+})} / PositiveInteger / StringLiteral / Label / "(" _ e:CTExpr _ ")" {return e}
 
 Identifier "identifier" = head:[A-Za-z$_@] tail:[A-Za-z0-9$_@]* ! {return KEYWORDS.includes(head + tail.join(""))} {
 	let t = text();
@@ -171,7 +161,7 @@ Identifier "identifier" = head:[A-Za-z$_@] tail:[A-Za-z0-9$_@]* ! {return KEYWOR
 	})
 }
 
-Label "label name" = "." e:"extern"? __ x:Identifier {return meta({
+Label "label name" = "." e:("extern" __)? x:Identifier {return meta({
 	type: "label",
 	value: x.value,
 	id: x,
